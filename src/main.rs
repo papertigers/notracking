@@ -100,6 +100,7 @@ fn do_list<P: AsRef<Path>>(ftype: FileType, path: P) -> Result<()> {
         .open(&path)
         .with_context(|| format!("failed to open {:?}", &path))?;
     file.write_all(body.as_bytes())?;
+    file.flush()?;
     info!(LOGGER, "installed {} to {:?}", ftype.as_str(), &path);
 
     Ok(())
@@ -129,7 +130,7 @@ fn main() -> Result<()> {
             Ok(s) => s,
             Err(e) => {
                 error!(LOGGER, "PWD contains invalid utf-8: {:?}", e);
-                return Err(anyhow::anyhow!("couldn't determin pwd"));
+                return Err(anyhow::anyhow!("couldn't determine pwd"));
             }
         }
     }
