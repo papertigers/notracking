@@ -5,7 +5,7 @@ use reqwest::blocking as _reqwest;
 use slog::*;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use thiserror::Error;
 
@@ -113,14 +113,15 @@ fn do_list<P: AsRef<Path>>(ftype: FileType, path: P) -> Result<()> {
 fn main() -> Result<()> {
     let mut args: Vec<String> = std::env::args().collect();
     let mut opts = getopt::Parser::new(&args, "d:");
-    let mut dir = String::new();
+    let mut dir = PathBuf::new();
 
     loop {
         match opts.next().transpose()? {
             None => break,
             Some(opt) => {
-                if let Opt('d', Some(string)) = opt {
-                    dir = string.clone()
+                if let Opt('d', Some(path)) = opt {
+                    dir.clear();
+                    dir.push(path)
                 }
             }
         }
@@ -128,15 +129,8 @@ fn main() -> Result<()> {
 
     let args = args.split_off(opts.index());
 
-    if dir.is_empty() {
-        let path = std::env::current_dir()?;
-        dir = match path.into_os_string().into_string() {
-            Ok(s) => s,
-            Err(e) => {
-                error!(LOGGER, "PWD contains invalid utf-8: {:?}", e);
-                return Err(anyhow::anyhow!("couldn't determine pwd"));
-            }
-        }
+    if dir.as_os_str().is_empty() {
+        dir = std::env::current_dir()?;
     }
 
     do_list(FileType::Domains, &dir)?;
