@@ -3,7 +3,7 @@ use getopt::Opt;
 use lazy_static::*;
 use reqwest::blocking as _reqwest;
 use slog::*;
-use std::fs::OpenOptions;
+use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -88,7 +88,8 @@ fn validate<S: AsRef<str>>(ftype: FileType, data: S) -> Result<()> {
 
 fn do_list<P: AsRef<Path>>(ftype: FileType, path: P) -> Result<()> {
     let url = format!("{}/{}.txt", BASE_URL, ftype.as_str());
-    let path = path.as_ref().join(format!("{}.txt", ftype.as_str()));
+    let path = path.as_ref().join(ftype.as_str()).with_extension("txt");
+    let path_tmp = &path.with_extension("tmp");
 
     info!(LOGGER, "getting {} at {}", ftype.as_str(), &url);
     let body = _reqwest::get(&url)?.text()?;
@@ -97,10 +98,13 @@ fn do_list<P: AsRef<Path>>(ftype: FileType, path: P) -> Result<()> {
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
-        .open(&path)
-        .with_context(|| format!("failed to open {:?}", &path))?;
+        .truncate(true)
+        .open(&path_tmp)
+        .with_context(|| format!("failed to open {:?}", &path_tmp))?;
     file.write_all(body.as_bytes())?;
     file.flush()?;
+
+    fs::rename(&path_tmp, &path)?;
     info!(LOGGER, "installed {} to {:?}", ftype.as_str(), &path);
 
     Ok(())
