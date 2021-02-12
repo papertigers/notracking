@@ -176,7 +176,7 @@ fn main() -> Result<()> {
             Err(e) => return Err(e.into()),
             Ok(es) => {
                 if !es.success() {
-                    return Err(anyhow::anyhow!("exec {:?}: failed {:?}", &args, &es));
+                    anyhow::bail!("exec {:?}: failed {:?}", &args, &es);
                 }
             }
         };
