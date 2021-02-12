@@ -10,7 +10,7 @@ slog-term = "2.6.0"
 anyhow = "1.0.38"
 lazy_static = "1.4.0"
 thiserror = "1.0.23"
-getopt = "1.1.0"
+getopts = "0.2.21"
 
 [dependencies.openssl]
 version = "0.10"

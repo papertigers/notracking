@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use getopt::Opt;
 use lazy_static::*;
 use reqwest::blocking as _reqwest;
 use slog::*;
@@ -111,23 +110,36 @@ fn do_list<P: AsRef<Path>>(ftype: FileType, path: P) -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    let mut args: Vec<String> = std::env::args().collect();
-    let mut opts = getopt::Parser::new(&args, "d:");
+    let args: Vec<String> = std::env::args().collect();
+    let program = &args[0].clone();
+    let brief = format!("Usage: {} [options] [<command>...]", program);
     let mut dir = PathBuf::new();
 
-    loop {
-        match opts.next().transpose()? {
-            None => break,
-            Some(opt) => {
-                if let Opt('d', Some(path)) = opt {
-                    dir.clear();
-                    dir.push(path)
-                }
-            }
+    let mut opts = getopts::Options::new();
+    opts.parsing_style(getopts::ParsingStyle::StopAtFirstFree);
+    opts.optflag("h", "help", "Print this help message");
+    opts.optopt(
+        "d",
+        "",
+        "Directory to store notracking files in",
+        "DIRECTORY",
+    );
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => {
+            anyhow::bail!("{}\n{}", f, opts.usage(&brief));
         }
+    };
+
+    if matches.opt_present("h") {
+        println!("{}", opts.usage(&brief));
+        return Ok(());
     }
 
-    let args = args.split_off(opts.index());
+    if let Some(path) = matches.opt_str("d") {
+        dir.push(path);
+    }
 
     if dir.as_os_str().is_empty() {
         dir = std::env::current_dir()?;
@@ -136,16 +148,16 @@ fn main() -> Result<()> {
     do_list(FileType::Domains, &dir)?;
     do_list(FileType::Hostnames, &dir)?;
 
-    if !args.is_empty() {
-        info!(LOGGER, "exec {:?}", &args);
+    if !matches.free.is_empty() {
+        info!(LOGGER, "exec {:?}", &matches.free);
 
-        let mut cmd = Command::new(&args[0]);
+        let mut cmd = Command::new(&matches.free[0]);
         cmd.stdin(Stdio::null());
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
-        if args.len() > 1 {
-            cmd.args(&args[1..]);
+        if matches.free.len() > 1 {
+            cmd.args(&matches.free[1..]);
         }
 
         let mut child = cmd.spawn()?;
